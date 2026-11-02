@@ -23,7 +23,8 @@ Errors (exit status 1):
 Warnings:
   - a different number of line breaks (\\n) than the English
   - leading spaces that differ from the English
-  - a translation identical to the English (redundant: English is the fallback)
+  - a translation identical to the English (redundant: English is the fallback), except __parent
+  - a __parent that differs from the English bundle's __parent
   - Portuguese text that looks Spanish (heuristic)
 """
 import argparse
@@ -142,6 +143,11 @@ def compare(lang, en, tr):
     """Problems with one translated value compared to its English source."""
     out = []
     e, t = decode(en.raw), decode(tr.raw)
+    if tr.key == "__parent":
+        # The parent bundle must match the English one; repeating it is expected, not redundant.
+        if e != t:
+            out.append(("warning", f"differs from English parent bundle '{e}'"))
+        return out
     if sorted(PLACEHOLDER.findall(e)) != sorted(PLACEHOLDER.findall(t)):
         out.append(("error", "placeholders differ from English"))
     if sorted(x.lower() for x in TAG.findall(e)) != sorted(x.lower() for x in TAG.findall(t)):
