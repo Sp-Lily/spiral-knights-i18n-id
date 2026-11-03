@@ -26,6 +26,11 @@ If you edit a bundle in an editor that saves accented letters as-is, run
 `python3 tools/fix_unicode.py pvp_es` (or a path to the file) to rewrite them as `\uXXXX`
 escapes. Add `--check` to only list the files that need it.
 
+When keys are removed from (or moved out of) an English bundle, run
+`python3 tools/remove_stale_keys.py` to delete them from the translations too. It takes the
+same `--lang` and `--bundle` options as `check_bundles.py`, and `--check` lists what it would
+remove without changing anything.
+
 ## License and contributions
 
 ### Ownership
