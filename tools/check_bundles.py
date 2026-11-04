@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 """Sanity-check the translation bundles against the default English bundles.
 
-Usage: python3 tools/check_bundles.py [--lang LANG ...] [--bundle NAME ...] [bundle_dir]
+Usage: python3 tools/check_bundles.py [--lang LANG ...] [--bundle NAME ...] [--no-missing] [bundle_dir]
 
 With --lang (e.g. --lang es), only problems in that language's bundles are reported.
 With --bundle (e.g. --bundle pvp), only problems in that bundle (English and translations) are reported.
 Both together report only the files matching both.
+With --no-missing, keys missing from a translation (notices) are not listed.
 
 Errors (exit status 1):
   - a translation key that the English bundle doesn't have, or a bundle with no English bundle
@@ -26,6 +27,10 @@ Warnings:
   - a translation identical to the English (redundant: English is the fallback), except __parent
   - a __parent that differs from the English bundle's __parent
   - Portuguese text that looks Spanish (heuristic)
+  - a missing translation file, for a language that has other bundles
+
+Notices (informational; the game falls back to English):
+  - a key in the English bundle that the translation doesn't have
 """
 import argparse
 import os
@@ -181,12 +186,19 @@ def main():
                     help="only report problems in this language's bundles (e.g. es); may be repeated")
     ap.add_argument("--bundle", action="append", default=[],
                     help="only report problems in this bundle and its translations (e.g. pvp); may be repeated")
+    ap.add_argument("--no-missing", action="store_true",
+                    help="don't list English keys that a translation is missing")
     ap.add_argument("bundle_dir", nargs="?",
                     default=os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
     args = ap.parse_args()
     root = args.bundle_dir
     names = sorted(n for n in os.listdir(root) if n.endswith(".properties"))
-    checked = [n for n in names if wanted(n, args.lang, args.bundle)]
+    # Every language that has any bundle should have all of them.
+    langs = sorted({m.group("lang") for m in map(LANG_SUFFIX.match, names) if m})
+    absent = sorted(f"{n[:-len('.properties')]}_{lang}.properties"
+                    for n in names if not LANG_SUFFIX.match(n) for lang in langs)
+    absent = [n for n in absent if n not in names]
+    checked = [n for n in names + absent if wanted(n, args.lang, args.bundle)]
     if not checked:
         what = []
         if args.lang:
@@ -211,6 +223,7 @@ def main():
             seen.setdefault(p.key, p.line)
             if p.raw.endswith((" ", "\t")):
                 report.append((name, p.last, "error", f"{p.key}: trailing whitespace"))
+    report += [(name, 0, "warning", f"{name} does not exist!") for name in absent]
     for name in names:
         m = LANG_SUFFIX.match(name)
         if not m:
@@ -221,6 +234,11 @@ def main():
             report.append((name, 1, "error", f"no English bundle {en_name}"))
             continue
         en = {p.key: p for p in parsed[en_name][0]}
+        if not args.no_missing:
+            have = {p.key for p in parsed[name][0]}
+            for p in parsed[en_name][0]:
+                if p.key not in have and (en_name, p.line) not in stray:
+                    report.append((name, 0, "notice", f"{p.key} is missing (in {en_name}:{p.line})"))
         for p in parsed[name][0]:
             if (name, p.line) in stray:
                 continue
@@ -248,11 +266,13 @@ def main():
             if len(keys) > 1:
                 report.append((name, 1, "error", f"chat alias '{alias}' is used by {', '.join(sorted(keys))}"))
     report = [r for r in report if wanted(r[0], args.lang, args.bundle)]
-    for name, line, level, msg in sorted(report):
-        print(f"{name}:{line}: {level}: {msg}")
+    # Sort on file and line only, so notices (line 0) stay in English bundle order.
+    for name, line, level, msg in sorted(report, key=lambda r: r[:2]):
+        print(f"{name}:{line}: {level}: {msg}" if line else f"{name}: {level}: {msg}")
     errors = sum(1 for r in report if r[2] == "error")
-    warnings = len(report) - errors
-    print(f"{errors} error(s), {warnings} warning(s) in {len(checked)} files")
+    warnings = sum(1 for r in report if r[2] == "warning")
+    notices = sum(1 for r in report if r[2] == "notice")
+    print(f"{errors} error(s), {warnings} warning(s), {notices} notice(s) in {len(checked)} files")
     sys.exit(1 if errors else 0)
 
 

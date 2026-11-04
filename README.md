@@ -20,11 +20,19 @@ Run `python3 tools/check_bundles.py` before sending a pull request. It reports k
 aren't in the English bundle, unescaped characters, and placeholders, HTML tags or `|`
 separators that don't match the English. To check only one language, pass it with `--lang`,
 e.g. `python3 tools/check_bundles.py --lang es`, and to check only one bundle, use `--bundle`,
-e.g. `--bundle pvp`. They can be combined: `--bundle pvp --lang es`.
+e.g. `--bundle pvp`. They can be combined: `--bundle pvp --lang es`. It also lists, as
+notices, English keys that a translation doesn't have yet (the game shows the English for
+those); pass `--no-missing` to leave them out. A bundle a language has no file for at all
+is one warning, not a notice per key.
 
 If you edit a bundle in an editor that saves accented letters as-is, run
 `python3 tools/fix_unicode.py pvp_es` (or a path to the file) to rewrite them as `\uXXXX`
 escapes. Add `--check` to only list the files that need it.
+
+When keys are removed from (or moved out of) an English bundle, run
+`python3 tools/remove_stale_keys.py` to delete them from the translations too. It takes the
+same `--lang` and `--bundle` options as `check_bundles.py`, and `--check` lists what it would
+remove without changing anything.
 
 ## License and contributions
 
